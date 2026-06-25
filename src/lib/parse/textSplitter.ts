@@ -9,6 +9,11 @@ import {
   RE_ANSWER,
   RE_ANALYSIS,
   RE_KNOWLEDGE,
+  RE_SUB_BLANK_HEADER,
+  RE_SUB_BLANK_HYPHEN,
+  RE_SUB_ANSWER_LINE,
+  RE_ANSWER_SUMMARY,
+  RE_SUMMARY_PAIR,
   splitInlineFields,
 } from './patterns'
 import {
@@ -37,6 +42,19 @@ interface RawQuestion {
   analysis: string
   knowledgePoint: string
   typeHint: string | null
+  // ── 分空选择题专用 ──
+  parentGroupId?: string   // 同一父题的所有子空共享同一 nanoid
+  blankLabel?: string      // 如 "第1空" / "(1)" / "17-1"
+  blankIndex?: number      // 空号数字（1,2,3...）
+  typeOverride?: QuestionType  // 强制题型（分空用）
+}
+
+// 子空段（用于 detectSubBlanks）
+interface SubBlankSpan {
+  startIndex: number    // 子空标题行在 block.lines 中的索引
+  endIndex: number      // 该子空段的结束索引（不含）
+  blankIndex: number    // 空号
+  label: string         // "第1空" / "17-1"
 }
 
 // Pass 1: 按题号切块
@@ -212,7 +230,217 @@ function parseBlock(block: Block): RawQuestion {
   }
 }
 
-// 文末集中答案处理
+// ────────────────────────────────────────────────────────────
+// 分空选择题解析：检测子空 → 拆分 → 组装独立 RawQuestion
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 检测一个 block 是否为分空题，返回子空段列表。
+ * 判定条件（满足任一即认为分空题）：
+ *   1) block 内 RE_SUB_BLANK_HEADER 匹配 >= 2 次
+ *   2) block 内 RE_SUB_ANSWER_LINE 匹配 >= 2 次（无"第X空"标题但有 (1)B (2)C 答案行）
+ *   3) block 内 RE_SUB_BLANK_HYPHEN 匹配 >= 2 次（17-1/17-2 格式）
+ */
+function detectSubBlanks(block: Block, parentNum?: number): SubBlankSpan[] | null {
+  const lines = block.lines
+  const spans: SubBlankSpan[] = []
+
+  // 收集所有子空标题行位置
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    let m = line.match(RE_SUB_BLANK_HEADER)
+    if (m) {
+      const idx = parseNumber(m[1]) ?? (spans.length + 1)
+      spans.push({ startIndex: i, endIndex: lines.length, blankIndex: idx, label: `第${idx}空` })
+      continue
+    }
+    m = line.match(RE_SUB_BLANK_HYPHEN)
+    if (m) {
+      const pNum = parseInt(m[1], 10)
+      // 仅当连字符前缀与父题号一致时才认作子空
+      if (parentNum !== undefined && pNum === parentNum) {
+        const idx = parseInt(m[2], 10)
+        spans.push({ startIndex: i, endIndex: lines.length, blankIndex: idx, label: `${pNum}-${idx}` })
+      }
+    }
+  }
+
+  // 若无标题行，退而用答案行定位
+  if (spans.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(RE_SUB_ANSWER_LINE)
+      if (m) {
+        const idx = parseInt(m[1], 10)
+        spans.push({ startIndex: i, endIndex: lines.length, blankIndex: idx, label: `(${idx})` })
+      }
+    }
+  }
+
+  if (spans.length < 2) {
+    // 单空或零空：单空也按分空走统一路径
+    if (spans.length === 1) return spans
+    return null
+  }
+
+  // 计算 endIndex：每个 span 的结束 = 下一个 span 的起始
+  // 但要先扣除共享尾部（解析/知识点/汇总）
+  const sharedTailStart = findSharedTailStart(lines, spans[spans.length - 1].startIndex)
+  for (let i = 0; i < spans.length; i++) {
+    spans[i].endIndex = i + 1 < spans.length ? spans[i + 1].startIndex : sharedTailStart
+  }
+  return spans
+}
+
+/**
+ * 找共享尾部起点：从最后一个子空标题往后，
+ * 第一个匹配 RE_ANALYSIS / RE_KNOWLEDGE / RE_ANSWER_SUMMARY 的行
+ */
+function findSharedTailStart(lines: string[], fromIdx: number): number {
+  for (let i = fromIdx; i < lines.length; i++) {
+    if (
+      RE_ANALYSIS.test(lines[i]) ||
+      RE_KNOWLEDGE.test(lines[i]) ||
+      RE_ANSWER_SUMMARY.test(lines[i])
+    ) {
+      return i
+    }
+  }
+  return lines.length
+}
+
+/**
+ * 解析分空块 → N 个独立的 RawQuestion（每空有自己 options + answer，共享 analysis/knowledgePoint）
+ */
+function parseSubBlankBlock(block: Block, spans: SubBlankSpan[]): RawQuestion[] {
+  const groupId = nanoid()
+  const raws: RawQuestion[] = []
+
+  // 1) 提取父题干：第一个子空标题之前的所有行
+  const firstSubStart = spans[0].startIndex
+  const parentStemLines = block.lines.slice(0, firstSubStart)
+  let parentStem = parentStemLines
+    .map((l) => l.replace(RE_QNUM, '').replace(RE_QNUM_P, '').trim())
+    .filter(Boolean)
+    .join('\n')
+    .trim()
+
+  // 2) 提取共享尾部（解析/知识点/汇总）
+  const tailStart = spans[spans.length - 1].endIndex
+  const tailLines = block.lines.slice(tailStart)
+  let sharedAnalysis = ''
+  let sharedKnowledge = ''
+  const summaryMap = new Map<number, string>() // 空号 → 答案
+
+  for (const line of tailLines) {
+    // 答案汇总行
+    const sm = line.match(RE_ANSWER_SUMMARY)
+    if (sm) {
+      let pm: RegExpExecArray | null
+      RE_SUMMARY_PAIR.lastIndex = 0
+      while ((pm = RE_SUMMARY_PAIR.exec(sm[1] ?? '')) !== null) {
+        summaryMap.set(parseInt(pm[1], 10), pm[2].trim())
+      }
+      continue
+    }
+    // 解析标记行
+    const am = matchAnalysisLine(line)
+    if (am !== null) {
+      sharedAnalysis = sharedAnalysis ? sharedAnalysis + '\n' + am : am
+      continue
+    }
+    // 知识点标记行
+    const km = matchKnowledgeLine(line)
+    if (km !== null) {
+      sharedKnowledge = sharedKnowledge ? sharedKnowledge + '\n' + km : km
+      continue
+    }
+    // 续行归入当前字段
+    if (sharedKnowledge) {
+      sharedKnowledge += '\n' + line
+    } else if (sharedAnalysis) {
+      sharedAnalysis += '\n' + line
+    }
+  }
+
+  // 3) 逐子空解析
+  for (const span of spans) {
+    const subLines = block.lines.slice(span.startIndex, span.endIndex)
+    const options: Option[] = []
+    let answer = ''
+
+    for (const line of subLines) {
+      // 子空标题行本身跳过
+      if (RE_SUB_BLANK_HEADER.test(line) || RE_SUB_BLANK_HYPHEN.test(line)) continue
+
+      // 子空答案行：答案：(1)B  →  提取 B
+      const sa = line.match(RE_SUB_ANSWER_LINE)
+      if (sa) {
+        answer = sa[2].trim()
+        continue
+      }
+      // 通用答案行兜底
+      const am = matchAnswerLine(line)
+      if (am !== null) {
+        const stripped = am.replace(/^[（(]\s*\d+\s*[)）]\s*/, '').trim()
+        answer = stripped || am
+        continue
+      }
+      // 选项行
+      const opt = parseOptionLine(line)
+      if (opt) {
+        options.push(opt)
+        continue
+      }
+    }
+
+    // 汇总兜底：若该子空没解析到答案，从 summaryMap 取
+    if (!answer && summaryMap.has(span.blankIndex)) {
+      answer = summaryMap.get(span.blankIndex)!
+    }
+
+    // 4) 构建子空题干
+    const subStem = buildSubBlankStem(parentStem, span.blankIndex, span.label)
+
+    raws.push({
+      order: 0, // 后续 renumber 统一分配
+      stem: subStem,
+      options,
+      answer,
+      analysis: sharedAnalysis,
+      knowledgePoint: sharedKnowledge,
+      typeHint: block.typeHint,
+      parentGroupId: groupId,
+      blankLabel: span.label,
+      blankIndex: span.blankIndex,
+      typeOverride:
+        options.length >= 2 ? QuestionType.SingleChoice : QuestionType.FillBlank,
+    })
+  }
+
+  return raws
+}
+
+/**
+ * 构建子空题干：将父题干中对应 (blankIndex) 替换为 〔第N空〕，
+ * 其余空引用保持原样。若未找到对应空引用则追加标识。
+ */
+function buildSubBlankStem(
+  parentStem: string,
+  blankIndex: number,
+  label: string,
+): string {
+  const targetPattern = new RegExp(
+    `[（(]\\s*${blankIndex}\\s*[)）]`,
+  )
+  // 先检查是否存在（test 后 replace 会消耗 lastIndex）
+  const hasTarget = targetPattern.test(parentStem)
+  if (hasTarget) {
+    // 重新执行替换（因为 test 已经消耗了 lastIndex... 实际上非 global 不影响）
+    return parentStem.replace(targetPattern, `〔${label}〕`)
+  }
+  // 未找到对应空引用，追加标识
+  return `${parentStem}\n\n【${label}】`
+}
 function applyTrailingAnswers(
   raws: RawQuestion[],
   unparsedLines: string[],
@@ -253,12 +481,10 @@ function parseNumber(s: string): number | null {
 
 // 组装 ParsedQuestion + 置信度
 function assemble(raw: RawQuestion): ParsedQuestion {
-  const { type, confidence: typeConf } = inferType(
-    raw.stem,
-    raw.options,
-    raw.answer,
-    raw.typeHint ?? undefined,
-  )
+  // 分空题强制题型 + 高置信度（跳过 inferType）
+  const { type, confidence: typeConf } = raw.typeOverride
+    ? { type: raw.typeOverride, confidence: 0.9 }
+    : inferType(raw.stem, raw.options, raw.answer, raw.typeHint ?? undefined)
   const answer = normalizeAnswer(raw.answer, type)
   const warnings: string[] = []
 
@@ -315,6 +541,10 @@ function assemble(raw: RawQuestion): ParsedQuestion {
     confidence: Math.round(confidence * 100) / 100,
     needsReview,
     warnings,
+    // 分空选择题字段透传
+    parentGroupId: raw.parentGroupId,
+    blankLabel: raw.blankLabel,
+    blankIndex: raw.blankIndex,
   }
 }
 
@@ -328,7 +558,26 @@ export function splitText(text: string): {
     return { questions: [], unparsedText: unparsed.join('\n') }
   }
 
-  const raws = blocks.map(parseBlock)
+  // 解析每个 block：分空题走 parseSubBlankBlock，普通题走 parseBlock
+  const raws: RawQuestion[] = []
+  for (const block of blocks) {
+    // 提取父题号（用于 17-1 格式匹配）
+    const qnumMatch = block.lines[0]?.match(RE_QNUM) || block.lines[0]?.match(RE_QNUM_P)
+    const parentNum = qnumMatch
+      ? (parseNumber(qnumMatch[1]) ?? undefined)
+      : undefined
+
+    const spans = detectSubBlanks(block, parentNum)
+    if (spans && spans.length >= 1) {
+      raws.push(...parseSubBlankBlock(block, spans))
+    } else {
+      raws.push(parseBlock(block))
+    }
+  }
+
+  // 重新编号（分空拆出的子空需要连续编号）
+  raws.forEach((r, i) => { r.order = i + 1 })
+
   applyTrailingAnswers(raws, unparsed)
   const questions = raws.map(assemble)
 
