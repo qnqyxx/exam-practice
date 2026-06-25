@@ -63,9 +63,10 @@ export function inferType(
     return { type: QuestionType.MultipleChoice, confidence: 0.95 }
   }
 
-  // 3) 题干包含典型多选关键词（"哪些"/"几项"/"多项"/"……的有"等）
+  // 3) 题干包含典型多选题型句式
+  //    注意：只匹配明确的多选题提问模式，避免"多个用户""哪些功能"等描述性语言误触
   const multiChoiceStemPatterns =
-    /下列哪些|以下哪些|哪些|几项|几条|多项|多个|说法正确的有|表述正确的有|属于.*的有|包括.*的有|正确的有|不正确的有|错误的有/
+    /(?:下列|以下)\s*(?:哪些|几项|几条)|多(?:项)?[选题]|(?:正确的?|不正确的?|错误的?)\s*(?:有(?:哪些|几项|几条)?|的是|包括)/
   const stemIsMulti = multiChoiceStemPatterns.test(stem)
 
   // 4) 有选项时，综合判断
