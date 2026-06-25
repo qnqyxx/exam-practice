@@ -44,20 +44,52 @@ export function normalizeTrueFalse(raw: string): string {
   return raw.trim()
 }
 
-// 推断题型
+// 推断题型（增强版）
 export function inferType(
   stem: string,
   options: Option[],
   answer: string,
   typeHint?: string,
 ): { type: QuestionType; confidence: number } {
-  // 有选项 → 单选或多选
+  // ── 多选检测优先级最高 ──
+
+  // 1) 题型小标题明确说"多选"→ 直接多选
+  if (typeHint?.includes('多选')) {
+    return { type: QuestionType.MultipleChoice, confidence: 0.95 }
+  }
+
+  // 2) 题干直接标注"多选"（如"（多选）"、"(多选题)"、"本题多选"）
+  if (/[（(]\s*多选(题)?\s*[)）]|多选题|本题多选|属于多选/.test(stem)) {
+    return { type: QuestionType.MultipleChoice, confidence: 0.95 }
+  }
+
+  // 3) 题干包含典型多选关键词（"哪些"/"几项"/"多项"/"……的有"等）
+  const multiChoiceStemPatterns =
+    /下列哪些|以下哪些|哪些|几项|几条|多项|多个|说法正确的有|表述正确的有|属于.*的有|包括.*的有|正确的有|不正确的有|错误的有/
+  const stemIsMulti = multiChoiceStemPatterns.test(stem)
+
+  // 4) 有选项时，综合判断
   if (options.length >= 2) {
     const ansLetters = answer.toUpperCase().replace(/[^A-Z]/g, '')
-    if (ansLetters.length > 1 || typeHint?.includes('多选')) {
-      return { type: QuestionType.MultipleChoice, confidence: 0.9 }
+
+    // 答案字母数 >1 → 几乎确定是多选（最可靠信号）
+    if (ansLetters.length > 1) {
+      return { type: QuestionType.MultipleChoice, confidence: 0.93 }
     }
-    return { type: QuestionType.SingleChoice, confidence: 0.9 }
+
+    // 题干有多选关键词 → 倾向多选
+    if (stemIsMulti) {
+      return { type: QuestionType.MultipleChoice, confidence: 0.82 }
+    }
+
+    // 选项文本中含"以上都对/以下都对/全部正确/AB都对"等多选标志
+    const optionTexts = options.map((o) => o.text).join(' ')
+    if (/全[对正]|以上都|以下都|都正确|均正确|两项?都|二者都/.test(optionTexts)) {
+      return { type: QuestionType.MultipleChoice, confidence: 0.85 }
+    }
+
+    // 默认单选（置信度中等，因为可能误判）
+    return { type: QuestionType.SingleChoice, confidence: 0.7 }
   }
 
   // 判断题
