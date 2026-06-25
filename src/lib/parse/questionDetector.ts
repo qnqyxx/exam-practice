@@ -63,13 +63,8 @@ export function inferType(
     return { type: QuestionType.MultipleChoice, confidence: 0.95 }
   }
 
-  // 3) 题干包含典型多选题型句式
-  //    注意：只匹配明确的多选题提问模式，避免"多个用户""哪些功能"等描述性语言误触
-  const multiChoiceStemPatterns =
-    /(?:下列|以下)\s*(?:哪些|几项|几条)|多(?:项)?[选题]|(?:正确的?|不正确的?|错误的?)\s*(?:有(?:哪些|几项|几条)?|的是|包括)/
-  const stemIsMulti = multiChoiceStemPatterns.test(stem)
-
-  // 4) 有选项时，综合判断
+  // 3) 有选项时，综合判断（仅靠客观信号，不依赖题干文本关键词——
+  //    "正确的是""错误的是"等是单选题最常用的提问方式，不可靠）
   if (options.length >= 2) {
     const ansLetters = answer.toUpperCase().replace(/[^A-Z]/g, '')
 
@@ -78,19 +73,14 @@ export function inferType(
       return { type: QuestionType.MultipleChoice, confidence: 0.93 }
     }
 
-    // 题干有多选关键词 → 倾向多选
-    if (stemIsMulti) {
-      return { type: QuestionType.MultipleChoice, confidence: 0.82 }
-    }
-
-    // 选项文本中含"以上都对/以下都对/全部正确/AB都对"等多选标志
+    // 选项文本中含"以上都对/全对/二者都"等多选标志
     const optionTexts = options.map((o) => o.text).join(' ')
     if (/全[对正]|以上都|以下都|都正确|均正确|两项?都|二者都/.test(optionTexts)) {
       return { type: QuestionType.MultipleChoice, confidence: 0.85 }
     }
 
-    // 默认单选（置信度中等，因为可能误判）
-    return { type: QuestionType.SingleChoice, confidence: 0.7 }
+    // 默认单选
+    return { type: QuestionType.SingleChoice, confidence: 0.75 }
   }
 
   // 判断题
