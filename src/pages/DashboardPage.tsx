@@ -37,25 +37,25 @@ export function DashboardPage() {
           icon={<FileQuestion className="size-5" />}
           label="题目总数"
           value={stats?.totalQuestions ?? 0}
-          color="text-blue-600 bg-blue-50"
+          color="text-info bg-info/10"
         />
         <StatCard
           icon={<Library className="size-5" />}
           label="题库数量"
           value={stats?.totalBanks ?? 0}
-          color="text-violet-600 bg-violet-50"
+          color="text-primary bg-primary/10"
         />
         <StatCard
           icon={<Target className="size-5" />}
           label="整体正确率"
           value={`${Math.round((stats?.overallAccuracy ?? 0) * 100)}%`}
-          color="text-emerald-600 bg-emerald-50"
+          color="text-success bg-success/10"
         />
         <StatCard
           icon={<Flame className="size-5" />}
           label="连续练习"
           value={`${stats?.streakDays ?? 0} 天`}
-          color="text-amber-600 bg-amber-50"
+          color="text-warning bg-warning/10"
         />
       </div>
 

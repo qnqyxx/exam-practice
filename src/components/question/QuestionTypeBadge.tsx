@@ -3,10 +3,10 @@ import { QuestionType, QUESTION_TYPE_LABELS } from '@/types/enums'
 import { cn } from '@/lib/utils'
 
 const typeStyles: Record<QuestionType, string> = {
-  [QuestionType.SingleChoice]: 'bg-blue-50 text-blue-700 border-blue-200',
-  [QuestionType.MultipleChoice]: 'bg-violet-50 text-violet-700 border-violet-200',
-  [QuestionType.TrueFalse]: 'bg-amber-50 text-amber-700 border-amber-200',
-  [QuestionType.FillBlank]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  [QuestionType.SingleChoice]: 'bg-info/10 text-info-foreground border-info/30',
+  [QuestionType.MultipleChoice]: 'bg-primary/10 text-primary border-primary/30',
+  [QuestionType.TrueFalse]: 'bg-warning/10 text-warning-foreground border-warning/30',
+  [QuestionType.FillBlank]: 'bg-success/10 text-success-foreground border-success/30',
 }
 
 export function QuestionTypeBadge({ type }: { type: QuestionType }) {

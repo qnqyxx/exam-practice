@@ -24,6 +24,12 @@
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
     --radius: 0.625rem;
+    --success: 142 71% 40%;
+    --success-foreground: 142 70% 16%;
+    --warning: 38 92% 48%;
+    --warning-foreground: 38 92% 20%;
+    --info: 217 91% 55%;
+    --info-foreground: 222 47% 18%;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -54,6 +60,12 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
+    --success: 142 70% 50%;
+    --success-foreground: 142 70% 85%;
+    --warning: 38 92% 58%;
+    --warning-foreground: 48 96% 90%;
+    --info: 217 91% 68%;
+    --info-foreground: 210 40% 96%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -71,18 +83,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* 阅读优化：题目文本排版 */
-.prose-question {
-  line-height: 1.75;
-  font-size: 17px;
-  word-break: break-word;
-}
-
-/* 自定义滚动条 */
+/* 自定义滚动条（token 化，暗色自适应） */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -91,9 +97,24 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(240 5% 80%);
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(240 5% 70%);
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* 切题过渡动画 */
+@keyframes question-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-question-in {
+  animation: question-fade-in 0.28s ease-out;
 }

@@ -22,7 +22,9 @@ import {
   useAccuracyTrend,
   useBankProgress,
   useTypeDistribution,
+  useActivityCalendar,
 } from '@/hooks/useStats'
+import { ActivityHeatmap } from '@/components/stats/ActivityHeatmap'
 import { QuestionType, QUESTION_TYPE_LABELS } from '@/types/enums'
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981']
@@ -32,6 +34,7 @@ export function StatsPage() {
   const trend = useAccuracyTrend(30)
   const bankProgress = useBankProgress()
   const typeDist = useTypeDistribution()
+  const activity = useActivityCalendar()
 
   if (loading) {
     return (
@@ -69,11 +72,21 @@ export function StatsPage() {
 
       {/* 指标卡 */}
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MetricCard icon={<FileQuestion />} label="题目总数" value={stats.totalQuestions} color="text-blue-600 bg-blue-50" />
-        <MetricCard icon={<Target />} label="整体正确率" value={`${Math.round(stats.overallAccuracy * 100)}%`} color="text-emerald-600 bg-emerald-50" />
-        <MetricCard icon={<Award />} label="连续练习" value={`${stats.streakDays} 天`} color="text-amber-600 bg-amber-50" />
-        <MetricCard icon={<TrendingUp />} label="今日练习" value={`${stats.practicedToday} 题`} color="text-violet-600 bg-violet-50" />
+        <MetricCard icon={<FileQuestion />} label="题目总数" value={stats.totalQuestions} color="text-info bg-info/10" />
+        <MetricCard icon={<Target />} label="整体正确率" value={`${Math.round(stats.overallAccuracy * 100)}%`} color="text-success bg-success/10" />
+        <MetricCard icon={<Award />} label="连续练习" value={`${stats.streakDays} 天`} color="text-warning bg-warning/10" />
+        <MetricCard icon={<TrendingUp />} label="今日练习" value={`${stats.practicedToday} 题`} color="text-primary bg-primary/10" />
       </div>
+
+      {/* 练习日历热力图 */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">练习日历（近 12 个月）</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ActivityHeatmap data={activity} />
+        </CardContent>
+      </Card>
 
       {/* 正确率趋势 */}
       <Card className="mb-6">

@@ -6,11 +6,12 @@ const DEFAULT_SETTINGS: Settings = {
   theme: 'light',
   revealMode: 'manual',
   shortcutsEnabled: true,
+  soundEnabled: false,
 }
 
 export async function getSettings(): Promise<Settings> {
   const s = await db.settings.get('app')
-  return s ?? DEFAULT_SETTINGS
+  return { ...DEFAULT_SETTINGS, ...s }
 }
 
 export async function updateSettings(patch: Partial<Settings>): Promise<void> {

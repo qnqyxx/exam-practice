@@ -42,7 +42,7 @@ export interface PracticeRecord {
   userAnswer: string
   durationMs?: number
   practicedAt: number // epoch ms
-  sessionType: 'sequential' | 'wrongbook'
+  sessionType: 'sequential' | 'wrongbook' | 'random' | 'exam'
 }
 
 export interface WrongQuestion {
@@ -61,6 +61,7 @@ export interface Settings {
   theme: 'light' | 'dark'
   revealMode: 'instant' | 'manual' // 默认 manual（空格揭示）
   shortcutsEnabled: boolean
+  soundEnabled: boolean
   defaultBankId?: string
 }
 

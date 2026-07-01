@@ -38,7 +38,7 @@ export function Sidebar() {
               )
             }
           >
-            <item.icon className="size-4.5" />
+            <item.icon className="size-4" />
             {item.label}
           </NavLink>
         ))}

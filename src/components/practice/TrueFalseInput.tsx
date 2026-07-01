@@ -24,11 +24,11 @@ export function TrueFalseInput({ value, onChange, revealed, correctAnswer }: Tru
             disabled={revealed}
             onClick={() => onChange(opt.key)}
             className={cn(
-              'flex items-center justify-center gap-2 rounded-lg border py-6 text-base font-medium transition-colors',
+              'flex items-center justify-center gap-2 rounded-lg border py-6 text-base font-medium transition-all hover:border-primary/50 hover:bg-accent/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
               selected && !revealed && 'border-primary bg-primary/5',
-              isCorrect && 'border-emerald-500 bg-emerald-50 text-emerald-900',
-              isWrong && 'border-red-500 bg-red-50 text-red-900',
-              !selected && !isCorrect && !isWrong && 'border-border hover:bg-accent',
+              isCorrect && 'border-success bg-success/10 text-success-foreground',
+              isWrong && 'border-destructive bg-destructive/10 text-destructive',
+              !selected && !isCorrect && !isWrong && 'border-border',
               revealed && !isCorrect && !isWrong && 'opacity-60',
             )}
           >

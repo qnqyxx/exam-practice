@@ -79,7 +79,7 @@ export function WrongBookPage() {
                         className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
                       >
                         <div className="flex items-center gap-3 text-sm">
-                          <Badge variant="outline" className="bg-red-50 text-red-700">
+                          <Badge variant="outline" className="bg-destructive/10 text-destructive">
                             错 {w.wrongCount} 次
                           </Badge>
                           <span className="text-muted-foreground">
@@ -90,7 +90,7 @@ export function WrongBookPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-7 text-emerald-600 hover:bg-emerald-50"
+                            className="size-7 text-success hover:bg-success/10"
                             onClick={async () => {
                               await markMastered(w.questionId)
                               toast.success('已标记为掌握')

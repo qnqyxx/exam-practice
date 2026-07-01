@@ -7,6 +7,7 @@ interface MultipleChoiceInputProps {
   onChange: (v: string) => void
   revealed: boolean
   correctAnswer: string
+  displayOrder?: string[]
 }
 
 export function MultipleChoiceInput({
@@ -15,6 +16,7 @@ export function MultipleChoiceInput({
   onChange,
   revealed,
   correctAnswer,
+  displayOrder,
 }: MultipleChoiceInputProps) {
   const selected = new Set(value.split(''))
 
@@ -26,10 +28,15 @@ export function MultipleChoiceInput({
   }
 
   const correctSet = new Set(correctAnswer.split(''))
+  const orderedOptions = displayOrder
+    ? displayOrder
+        .map((k) => options.find((o) => o.key === k))
+        .filter((o): o is NonNullable<typeof o> => !!o)
+    : [...options].sort((a, b) => a.key.localeCompare(b.key))
 
   return (
     <div className="space-y-2">
-      {options.map((opt) => {
+      {orderedOptions.map((opt) => {
         const isSelected = selected.has(opt.key)
         const isCorrect = revealed && correctSet.has(opt.key)
         const isWrong = revealed && isSelected && !correctSet.has(opt.key)
@@ -39,20 +46,20 @@ export function MultipleChoiceInput({
             disabled={revealed}
             onClick={() => toggle(opt.key)}
             className={cn(
-              'flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm transition-colors',
+              'flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm transition-all hover:border-primary/50 hover:bg-accent/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
               isSelected && !revealed && 'border-primary bg-primary/5',
-              isCorrect && 'border-emerald-500 bg-emerald-50 text-emerald-900',
-              isWrong && 'border-red-500 bg-red-50 text-red-900',
-              !isSelected && !isCorrect && !isWrong && 'border-border hover:bg-accent',
+              isCorrect && 'border-success bg-success/10 text-success-foreground',
+              isWrong && 'border-destructive bg-destructive/10 text-destructive',
+              !isSelected && !isCorrect && !isWrong && 'border-border',
               revealed && !isCorrect && !isWrong && 'opacity-60',
             )}
           >
             <span
               className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded border text-sm',
+                'flex size-7 shrink-0 items-center justify-center rounded-md border text-sm',
                 isSelected && 'border-primary bg-primary text-primary-foreground',
-                isCorrect && 'border-emerald-500 bg-emerald-500 text-white',
-                isWrong && 'border-red-500 bg-red-500 text-white',
+                isCorrect && 'border-success bg-success text-success-foreground',
+                isWrong && 'border-destructive bg-destructive text-white',
               )}
             >
               {isSelected ? '✓' : ''}

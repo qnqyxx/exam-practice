@@ -148,7 +148,7 @@ export function UploadPage() {
       </p>
 
       {/* 选择目标题库 */}
-      {!results && !parsing && (
+      {!parsing && (
         <Card className="mb-5">
           <CardContent className="p-5">
             <Label className="mb-3 block">目标题库</Label>
@@ -205,8 +205,8 @@ export function UploadPage() {
 
       {/* 错误提示 */}
       {error && !parsing && (
-        <Card className="mt-5 border-amber-200 bg-amber-50/50">
-          <CardContent className="p-4 text-sm text-amber-800">
+        <Card className="mt-5 border-warning/30 bg-warning/5">
+          <CardContent className="p-4 text-sm text-warning-foreground">
             <p className="font-medium">提示</p>
             <p className="mt-1">{error}</p>
             {results && results.unparsedText && (
@@ -229,7 +229,7 @@ export function UploadPage() {
         <div>
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="size-5 text-emerald-500" />
+              <CheckCircle2 className="size-5 text-success" />
               <span className="font-medium">
                 已识别 {results.questions.length} 道题目，请核对后保存
               </span>
@@ -238,7 +238,7 @@ export function UploadPage() {
               <Button variant="outline" onClick={() => { setResults(null); setError(null) }}>
                 重新上传
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || (mode === 'new' ? !newBankName.trim() : !selectedBankId)}>
                 <Save className="mr-1 size-4" />
                 {saving ? '保存中…' : '保存到题库'}
               </Button>
@@ -248,21 +248,127 @@ export function UploadPage() {
         </div>
       )}
 
-      {/* 空状态 */}
+      {/* 标准导入格式说明 */}
       {!results && !parsing && !error && (
         <Card className="mt-5 border-dashed">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3 text-sm text-muted-foreground">
-              <FileText className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium text-foreground">支持的文档格式</p>
-                <ul className="mt-1 list-inside list-disc space-y-0.5 text-xs">
-                  <li>Word（.docx）— 推荐格式，识别效果最佳</li>
-                  <li>PDF（.pdf）— 需有可选文字层，扫描件暂不支持</li>
-                  <li>文本（.txt）— 纯文本题目</li>
-                </ul>
-                <p className="mt-2 text-xs">题目应包含题号（如 1. / 一、），答案可用「答案：」标记，解析可用「解析：」标记。</p>
-              </div>
+          <CardContent className="space-y-5 p-5 text-sm">
+            <div className="flex items-center gap-2">
+              <FileText className="size-4 shrink-0 text-muted-foreground" />
+              <p className="font-medium text-foreground">标准导入格式说明</p>
+              <span className="text-xs text-muted-foreground">按以下规范整理文档，可保证题目识别完整</span>
+            </div>
+
+            {/* 1. 文件类型 */}
+            <div>
+              <p className="mb-1 font-medium">1. 支持的文件类型</p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
+                <li>Word（.docx）— 推荐格式，识别效果最佳</li>
+                <li>文本（.txt）— 纯文本题目，UTF-8 编码</li>
+                <li>PDF（.pdf）— 需有可选文字层，扫描件暂不支持；建议优先转为 .docx</li>
+              </ul>
+            </div>
+
+            {/* 2. 题号格式 */}
+            <div>
+              <p className="mb-1 font-medium">2. 题号（每题以题号开头，用于切分题目）</p>
+              <p className="text-xs text-muted-foreground">支持以下写法：</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`1. 题干内容
+1、题干内容
+1．题干内容
+一、题干内容
+一. 题干内容
+（一）题干内容
+(1) 题干内容
+题1. 题干内容`}</pre>
+            </div>
+
+            {/* 3. 选项格式 */}
+            <div>
+              <p className="mb-1 font-medium">3. 选项（每行一个，字母 + 分隔符 + 内容）</p>
+              <p className="text-xs text-muted-foreground">分隔符支持 <code>.</code> <code>、</code> <code>．</code> <code>)</code> <code>：</code> <code>:</code></p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`A. 选项一
+B、选项二
+C) 选项三
+D：选项四`}</pre>
+            </div>
+
+            {/* 4. 答案 / 解析 / 知识点 */}
+            <div>
+              <p className="mb-1 font-medium">4. 答案 / 解析 / 知识点标记</p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
+                <li>答案标记：答案： / 【答案】 / 正确答案： / 参考答案： / 标准答案：</li>
+                <li>解析标记：解析： / 答案解析： / 试题解析： / 分析： / 详解： / 说明：</li>
+                <li>知识点标记：知识点： / 考点： / 知识链接： / 相关知识： / 核心考点：</li>
+              </ul>
+              <p className="mt-1 text-xs text-muted-foreground">三者可独占一行，也可在一行内连写：</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`答案：A。解析：因为……。知识点：第三章`}</pre>
+            </div>
+
+            {/* 5. 题型小标题 */}
+            <div>
+              <p className="mb-1 font-medium">5. 题型小标题（可选，用于批量指定后续题型）</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`一、单选题
+二、多选题
+三、判断题
+四、填空题`}</pre>
+              <p className="mt-1 text-xs text-muted-foreground">也可在题干中直接标注（如「（多选）」），系统会据此识别多选题。</p>
+            </div>
+
+            {/* 6. 判断题答案 */}
+            <div>
+              <p className="mb-1 font-medium">6. 判断题答案写法</p>
+              <p className="text-xs text-muted-foreground">以下任一均可识别为判断题答案：</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`对 / 错   正确 / 错误   T / F   Y / N   √ / ×   是 / 否   true / false`}</pre>
+            </div>
+
+            {/* 7. 填空占位符 */}
+            <div>
+              <p className="mb-1 font-medium">7. 填空题占位符</p>
+              <p className="text-xs text-muted-foreground">题干中用以下符号表示空格，系统会识别为填空题：</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`两个及以上下划线：____
+中文/英文空括号：（） / ()`}</pre>
+            </div>
+
+            {/* 8. 文末答案区 */}
+            <div>
+              <p className="mb-1 font-medium">8. 文末集中答案区（可选）</p>
+              <p className="text-xs text-muted-foreground">若所有题目均无内联答案，可在文末集中列出，系统会自动匹配：</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`1. A
+2、BCD
+3. 对`}</pre>
+            </div>
+
+            {/* 9. 完整示例 */}
+            <div>
+              <p className="mb-1 font-medium">9. 完整示例</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 text-xs leading-relaxed">{`一、单选题
+1. 下列哪项是 JavaScript 的基本数据类型？
+A. String
+B. Array
+C. Object
+D. Function
+答案：A
+解析：String 是基本数据类型，Array/Object/Function 属于引用类型。
+知识点：数据类型
+
+二、多选题
+2. 以下属于前端框架的有？
+A. React
+B. Vue
+C. Spring
+D. Angular
+答案：ABD
+解析：Spring 是后端框架。
+
+三、判断题
+3. HTTP 是无状态协议。
+答案：对
+解析：HTTP 默认不保留连接状态。
+
+四、填空题
+4. HTML 的全称是 ____。
+答案：HyperText Markup Language
+解析：HTML 即超文本标记语言。`}</pre>
             </div>
           </CardContent>
         </Card>

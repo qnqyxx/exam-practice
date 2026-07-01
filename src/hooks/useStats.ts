@@ -101,3 +101,8 @@ export function useTypeDistribution() {
   }, [])
   return data ?? {}
 }
+
+export function useActivityCalendar() {
+  const data = useLiveQuery(() => countRecordsByDay(365), [])
+  return data ?? []
+}

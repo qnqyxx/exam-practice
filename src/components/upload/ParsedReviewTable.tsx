@@ -24,12 +24,12 @@ interface ParsedReviewTableProps {
 
 function ConfidenceIcon({ confidence, needsReview }: { confidence: number; needsReview: boolean }) {
   if (!needsReview && confidence >= 0.8) {
-    return <CheckCircle2 className="size-4 text-emerald-500" />
+    return <CheckCircle2 className="size-4 text-success" />
   }
   if (confidence < 0.5) {
-    return <AlertCircle className="size-4 text-red-500" />
+    return <AlertCircle className="size-4 text-destructive" />
   }
-  return <AlertTriangle className="size-4 text-amber-500" />
+  return <AlertTriangle className="size-4 text-warning" />
 }
 
 export function ParsedReviewTable({ questions, onChange }: ParsedReviewTableProps) {
@@ -66,7 +66,7 @@ export function ParsedReviewTable({ questions, onChange }: ParsedReviewTableProp
         <div className="flex items-center gap-3 text-sm">
           <span className="font-medium">共 {questions.length} 题</span>
           {reviewCount > 0 && (
-            <Badge variant="outline" className="bg-amber-50 text-amber-700">
+            <Badge variant="outline" className="bg-warning/10 text-warning-foreground">
               {reviewCount} 题待核对
             </Badge>
           )}
@@ -99,9 +99,9 @@ export function ParsedReviewTable({ questions, onChange }: ParsedReviewTableProp
               className={cn(
                 'rounded-lg border',
                 q.needsReview && q.confidence < 0.5
-                  ? 'border-red-200 bg-red-50/30'
+                  ? 'border-destructive/30 bg-destructive/5'
                   : q.needsReview
-                    ? 'border-amber-200 bg-amber-50/30'
+                    ? 'border-warning/30 bg-warning/5'
                     : 'border-border',
               )}
             >
@@ -128,12 +128,12 @@ export function ParsedReviewTable({ questions, onChange }: ParsedReviewTableProp
                       </Badge>
                     )}
                     {q.warnings.length > 0 && (
-                      <span className="text-xs text-amber-600">{q.warnings.join('；')}</span>
+                      <span className="text-xs text-warning">{q.warnings.join('；')}</span>
                     )}
                   </div>
                   <p className="mt-1 line-clamp-2 text-sm">{q.stem || '(空题干)'}</p>
                   {q.answer && (
-                    <p className="mt-1 text-xs text-emerald-600">答案：{q.answer}</p>
+                    <p className="mt-1 text-xs text-success">答案：{q.answer}</p>
                   )}
                   {(q.analysis || q.knowledgePoint) && (
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -143,7 +143,7 @@ export function ParsedReviewTable({ questions, onChange }: ParsedReviewTableProp
                         </span>
                       )}
                       {q.knowledgePoint && (
-                        <span className="line-clamp-1 text-blue-600">
+                        <span className="line-clamp-1 text-info-foreground">
                           知识点：{q.knowledgePoint}
                         </span>
                       )}
